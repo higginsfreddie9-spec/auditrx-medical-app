@@ -1,0 +1,123 @@
+import Link from "next/link";
+import { ArrowRight, ShieldCheck } from "lucide-react";
+
+const SAMPLE_ROWS = [
+  {
+    code: "99285",
+    desc: "ER visit, high complexity",
+    billed: "$4,820.00",
+    corrected: "$1,140.00",
+    tag: "Duplicate charge",
+  },
+  {
+    code: "80053",
+    desc: "Comprehensive metabolic panel",
+    billed: "$310.00",
+    corrected: "$42.00",
+    tag: "Not billed to insurer",
+  },
+  {
+    code: "71046",
+    desc: "Chest X-ray, 2 views",
+    billed: "$690.00",
+    corrected: "$0.00",
+    tag: "Denied, still charged",
+  },
+];
+
+export default function Hero() {
+  return (
+    <section className="relative overflow-hidden border-b border-hairline">
+      <div className="mx-auto grid max-w-6xl gap-12 px-6 py-16 md:grid-cols-2 md:py-24">
+        {/* Copy column */}
+        <div className="flex flex-col justify-center">
+          <span className="eyebrow inline-flex w-fit items-center gap-2 rounded-sm border border-hairline bg-white px-2.5 py-1 text-ink">
+            <ShieldCheck size={13} className="text-verified" />
+            Line-by-line EOB &amp; bill comparison
+          </span>
+
+          <h1 className="mt-5 font-display text-4xl font-semibold leading-[1.08] tracking-tight text-ink md:text-5xl">
+            Your medical bill has errors.
+            <br />
+            <span className="italic text-flag">We find them in minutes.</span>
+          </h1>
+
+          <p className="mt-5 max-w-lg font-body text-lg leading-relaxed text-slate">
+            Upload your itemized bill and insurance EOB. AuditRx AI cross-checks
+            every CPT code and charge, flags overcharges and denials billed to
+            you by mistake, and drafts a dispute letter ready to send to your
+            provider&apos;s billing office.
+          </p>
+
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="#audit-tool"
+              className="group inline-flex items-center justify-center gap-2 rounded-sm bg-flag px-6 py-3.5 font-mono text-sm font-medium uppercase tracking-wide text-white transition-colors hover:bg-flag-light"
+            >
+              Audit my bill for free
+              <ArrowRight
+                size={15}
+                className="transition-transform group-hover:translate-x-0.5"
+              />
+            </Link>
+            <Link
+              href="/resources/how-to-dispute-a-medical-bill"
+              className="inline-flex items-center justify-center rounded-sm border border-ink/20 px-6 py-3.5 font-mono text-sm font-medium uppercase tracking-wide text-ink transition-colors hover:border-ink"
+            >
+              Read the dispute guide
+            </Link>
+          </div>
+
+          <p className="mt-5 font-mono text-xs text-slate-dim">
+            No insurance login required. Documents are processed for this
+            audit only.
+          </p>
+        </div>
+
+        {/* Signature visual: redlined ledger */}
+        <div className="relative flex items-center">
+          <div className="w-full rotate-1 rounded-sm border border-hairline bg-white p-6 shadow-[6px_6px_0_0_#14213D0F]">
+            <div className="flex items-center justify-between border-b border-hairline pb-3">
+              <div>
+                <p className="font-mono text-[11px] uppercase tracking-wide text-slate-dim">
+                  Itemized statement vs. EOB
+                </p>
+                <p className="font-display text-sm font-semibold text-ink">
+                  Riverside General Hospital
+                </p>
+              </div>
+              <span className="flag-tag animate-stamp-in">
+                3 errors found
+              </span>
+            </div>
+
+            <div className="mt-1">
+              {SAMPLE_ROWS.map((row) => (
+                <div key={row.code} className="ledger-row">
+                  <div>
+                    <p className="text-ink">{row.desc}</p>
+                    <p className="text-[11px] text-slate-dim">CPT {row.code}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="billed-amount">{row.billed}</p>
+                    <p className="corrected-amount">{row.corrected}</p>
+                  </div>
+                  <span className="flag-tag whitespace-nowrap">{row.tag}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 flex items-center justify-between rounded-sm bg-verified-bg px-4 py-3">
+              <span className="font-mono text-xs uppercase tracking-wide text-verified">
+                Potential savings identified
+              </span>
+              <span className="font-display text-lg font-semibold text-verified">
+                $4,638.00
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}

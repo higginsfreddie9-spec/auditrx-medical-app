@@ -1,0 +1,128 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { getAvailableProviders, getProvider } from "@/lib/payments";
+import { getSession } from "@/lib/auth/session";
+import type { PaymentProviderName } from "@/lib/payments/types";
+
+const UNLOCK_PRICE_CENTS = 4900; // $49.00 (or currency-equivalent — see note below)
+
+export async function GET() {
+  // Lets the client know which gateways are actually usable right now,
+  // so it can render a provider picker (or skip straight to the only
+  // one configured).
+  const providers = getAvailableProviders().map((p) => ({
+    name: p.name,
+    currencies: p.supportedCurrencies,
+  }));
+  return NextResponse.json({ providers });
+}
+
+export async function POST(req: NextRequest) {
+  const body = await req.json().catch(() => ({}));
+  const { auditId, provider: requestedProvider, currency = "USD", email } = body as {
+    auditId?: string;
+    provider?: PaymentProviderName;
+    currency?: string;
+    email?: string;
+  };
+
+  if (!auditId) {
+    return NextResponse.json({ error: "auditId is required." }, { status: 400 });
+  }
+
+  const auditSession = await prisma.auditSession.findUnique({ where: { id: auditId } });
+  if (!auditSession) {
+    return NextResponse.json({ error: "Audit not found." }, { status: 404 });
+  }
+
+  const available = getAvailableProviders();
+  if (available.length === 0) {
+    return NextResponse.json(
+      { error: "No payment provider is configured on the server." },
+      { status: 500 }
+    );
+  }
+
+  const provider = requestedProvider
+    ? getProvider(requestedProvider)
+    : available[0]; // default to the first available (Paystack, if configured)
+
+  if (!provider.isConfigured()) {
+    return NextResponse.json(
+      { error: `${provider.name} is not configured on the server.` },
+      { status: 400 }
+    );
+  }
+
+  const session = await getSession();
+  const resolvedEmail = email || session?.email;
+
+  // Guest checkout still gets an account: the email collected in the
+  // payment modal is upserted into User and attached to both the Order and
+  // the AuditSession. This is what lets someone who never explicitly
+  // "signed up" still find this audit later by requesting a magic link for
+  // the same email — payment becomes the account-creation moment.
+  let userId = session?.userId;
+  if (!userId && resolvedEmail) {
+    const user = await prisma.user.upsert({
+      where: { email: resolvedEmail },
+      update: {},
+      create: { email: resolvedEmail },
+    });
+    userId = user.id;
+    if (!auditSession.userId) {
+      await prisma.auditSession.update({ where: { id: auditSession.id }, data: { userId } });
+    }
+  }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
+  // NOTE ON AMOUNT: $49.00 is defined in cents above. If you charge in KES
+  // instead of USD, convert at checkout time (e.g. via a cached FX rate or
+  // a fixed KES price you set deliberately) rather than passing USD cents
+  // to a KES charge — Paystack/Flutterwave will bill the raw number you send
+  // in whatever currency you specify.
+  const amountCents = UNLOCK_PRICE_CENTS;
+
+  // Create the Order first, in PENDING state, so the webhook has something
+  // to find regardless of which provider's reference format comes back.
+  const order = await prisma.order.create({
+    data: {
+      auditSessionId: auditSession.id,
+      userId,
+      provider: provider.name.toUpperCase() as "STRIPE" | "PAYSTACK" | "FLUTTERWAVE",
+      providerRef: `pending-${crypto.randomUUID()}`, // replaced once the provider responds
+      amountCents,
+      currency,
+      status: "PENDING",
+    },
+  });
+
+  try {
+    const checkout = await provider.createCheckoutSession({
+      orderId: order.id,
+      amountCents,
+      currency,
+      customerEmail: resolvedEmail,
+      productName: "AuditRx AI — Dispute Letter Unlock",
+      productDescription:
+        "Full dispute letter, CPT-code discrepancy report, and certified-mail-ready formatting.",
+      successUrl: `${siteUrl}/audits/${auditSession.id}?payment=success`,
+      cancelUrl: `${siteUrl}/audits/${auditSession.id}?payment=cancelled`,
+    });
+
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { providerRef: checkout.providerRef },
+    });
+
+    return NextResponse.json({ url: checkout.redirectUrl, provider: provider.name });
+  } catch (error) {
+    console.error(`Checkout session creation failed (${provider.name}):`, error);
+    await prisma.order.update({ where: { id: order.id }, data: { status: "FAILED" } });
+    return NextResponse.json(
+      { error: "Unable to start checkout. Please try again." },
+      { status: 500 }
+    );
+  }
+}

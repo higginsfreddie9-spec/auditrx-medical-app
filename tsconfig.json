@@ -1,0 +1,82 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
+import { BLOG_POSTS } from "@/lib/blog-data";
+
+export const metadata: Metadata = {
+  title: "Medical Billing Dispute Guides & EOB Error Checklists",
+  description:
+    "Step-by-step guides on how to dispute a medical bill, spot EOB errors, and write surprise-billing dispute letters that get results.",
+  alternates: {
+    canonical: "/resources",
+  },
+  openGraph: {
+    title: "Medical Billing Dispute Guides & EOB Error Checklists",
+    description:
+      "Step-by-step guides on how to dispute a medical bill, spot EOB errors, and write surprise-billing dispute letters that get results.",
+    type: "website",
+    url: "/resources",
+  },
+};
+
+export default function ResourcesPage() {
+  const categories = Array.from(new Set(BLOG_POSTS.map((p) => p.category)));
+
+  return (
+    <div className="mx-auto max-w-6xl px-6 py-16 md:py-24">
+      <p className="eyebrow">Billing guides</p>
+      <h1 className="mt-2 max-w-2xl font-display text-4xl font-semibold tracking-tight text-ink">
+        Everything we know about medical billing errors, written down.
+      </h1>
+      <p className="mt-4 max-w-xl font-body text-base leading-relaxed text-slate">
+        Practical, source-cited guides for patients dealing with confusing
+        medical bills — how to read an EOB, how to dispute a charge, and what
+        federal law actually protects you from.
+      </p>
+
+      <div className="mt-10 flex flex-wrap gap-2">
+        {categories.map((cat) => (
+          <span
+            key={cat}
+            className="rounded-sm border border-hairline bg-white px-3 py-1 font-mono text-[11px] uppercase tracking-wide text-slate"
+          >
+            {cat}
+          </span>
+        ))}
+      </div>
+
+      <div className="mt-8 divide-y divide-hairline border-t border-hairline">
+        {BLOG_POSTS.map((post) => (
+          <Link
+            key={post.slug}
+            href={`/resources/${post.slug}`}
+            className="group flex flex-col gap-2 py-7 md:flex-row md:items-center md:justify-between md:gap-6"
+          >
+            <div className="max-w-2xl">
+              <p className="eyebrow text-slate-dim">{post.category}</p>
+              <h2 className="mt-1.5 font-display text-xl font-semibold text-ink group-hover:text-flag md:text-2xl">
+                {post.title}
+              </h2>
+              <p className="mt-2 font-body text-sm leading-relaxed text-slate">
+                {post.dek}
+              </p>
+              <p className="mt-2 font-mono text-[11px] text-slate-dim">
+                Updated{" "}
+                {new Date(post.updatedDate).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}{" "}
+                · {post.readingTimeMinutes} min read
+              </p>
+            </div>
+            <ArrowUpRight
+              size={20}
+              className="shrink-0 text-slate-dim transition-colors group-hover:text-flag"
+            />
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
